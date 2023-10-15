@@ -68,7 +68,7 @@ var _ = suite.Test("main test", func(c *Context) {
 
 	})
 
-	c.FContext("this is a focused sub test", func(c *Context) {
+	c.Context("this is a focused sub test", func(c *Context) {
 		c.
 			Before(func() {
 				num = 2
