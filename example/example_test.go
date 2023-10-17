@@ -1,7 +1,6 @@
 package example_test
 
 import (
-	"fmt"
 	"testing"
 
 	. "github.com/coopersmall/penthouse"
@@ -20,9 +19,13 @@ var _ = suite.BeforeAll(func() {
 })
 
 var _ = suite.Test("main test", func(ctx *Context) {
-	ctx.Test("top level test", func(assert Assert) {
+	ctx.Test(func(t *T) {
 		// ...
-		assert.Equal(num, 2)
+		t.Assert("some test", func(assert Assert) {
+			// ...
+			assert.Equal(num, 2)
+			// ...
+		})
 		// ...
 	})
 
@@ -36,17 +39,20 @@ var _ = suite.Test("main test", func(ctx *Context) {
 			}).
 			JustBefore(func() {
 				num = 5
-				fmt.Print(num)
 			}).
-			Test("some test", func(assert Assert) {
+			Test(func(t *T) {
 				// ...
-				fmt.Print(num)
-				assert.Equal(num, 5)
+				t.Assert("some test", func(assert Assert) {
+					assert.Equal(num, 5)
+				})
 				// ...
 			}).
-			Test("some other test", func(assert Assert) {
+			Test(func(t *T) {
 				// ...
-				assert.Equal(num, 5)
+				t.Assert("some test", func(assert Assert) {
+					assert.Equal(num, 5)
+				})
+				// ...
 			}).
 			Context("sub sub test", func(ctx *Context) {
 				ctx.
@@ -56,9 +62,11 @@ var _ = suite.Test("main test", func(ctx *Context) {
 					JustBefore(func() {
 						num = 6
 					}).
-					XTest("some test in the subtest", func(assert Assert) {
+					Test(func(t *T) {
 						// ...
-						assert.Equal(num, 6)
+						t.Assert("some test", func(assert Assert) {
+							assert.Equal(num, 6)
+						})
 						// ...
 					})
 			})
@@ -73,10 +81,10 @@ var _ = suite.Test("main test", func(ctx *Context) {
 			JustBefore(func() {
 				num = 6
 			}).
-			Test("tis a focused subtest", func(assert Assert) {
-				// ...
-				assert.Equal(num, 6)
-				// ...
+			Test(func(t *T) {
+				t.Assert("some test", func(assert Assert) {
+					assert.Equal(num, 6)
+				})
 			})
 	})
 })
