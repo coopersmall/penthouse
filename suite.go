@@ -20,17 +20,22 @@ type Context struct {
 	justBefore []func()
 	after      []func()
 	children   []*Context
-	runner     Runner
+	tests      []*T
 	skip       bool
 	focus      bool
 	focused    map[string]*Context
 }
 
-type Runner struct {
+type T struct {
 	name  string
-	runs  []func(t *testing.T)
+	runs  []func() error
 	skip  bool
 	focus bool
+}
+
+func (t *T) Assert(name string, fn func(a Assert)) {
+	a := newAsserter(name, t)
+	fn(a)
 }
 
 func (t *Context) Before(fn func()) *Context {
@@ -43,14 +48,17 @@ func (t *Context) JustBefore(fn func()) *Context {
 	return t
 }
 
-func (t *Context) Test(fn func(t *testing.T)) *Context {
-	t.runner.runs = append(t.runner.runs, fn)
+func (t *Context) Test(fn func(t *T)) *Context {
+	test := &T{
+		name: t.name,
+		runs: make([]func() error, 0),
+	}
+	fn(test)
+	t.tests = append(t.tests, test)
 	return t
 }
 
 func (t *Context) XTest(fn func(t *testing.T)) *Context {
-	t.runner.runs = append(t.runner.runs, fn)
-	t.runner.skip = true
 	return t
 }
 
@@ -88,11 +96,6 @@ func newSuite(name string) *suite {
 		tests: make([]*Context, 0),
 		opts:  make([]opt, 0),
 	}
-}
-
-func (s *suite) Assert(name string, t *testing.T, fn func(a Assert)) {
-	a := newAsserter(name, t)
-	fn(a)
 }
 
 func (s *suite) Test(name string, fn func(ctx *Context)) *suite {
@@ -211,17 +214,30 @@ func test(c *Context) opt {
 				test(f)(s)
 			}
 		default:
-			for _, run := range c.runner.runs {
-				if run == nil {
-					continue
+			for _, t := range c.tests {
+				for _, before := range c.before {
+					before()
 				}
 
-				if c.runner.skip {
-					fmt.Print(Yellow("•"))
-					continue
+				for _, before := range c.justBefore {
+					before()
 				}
 
-				run(s.T())
+				for _, run := range t.runs {
+					s.t.Run(t.name, func(t *testing.T) {
+						if err := run(); err != nil {
+							fmt.Print(Red("•"))
+							t.Error(err)
+							return
+						}
+						fmt.Print(Green("•"))
+
+					})
+				}
+
+				for _, after := range c.after {
+					after()
+				}
 			}
 
 			testChildren()
@@ -243,9 +259,7 @@ func newContext(name string) *Context {
 		before:  make([]func(), 0),
 		after:   make([]func(), 0),
 		focused: make(map[string]*Context),
-		runner: Runner{
-			runs: make([]func(t *testing.T), 0),
-		},
+		tests:   make([]*T, 0),
 	}
 }
 
@@ -265,20 +279,18 @@ func getAllChildren(c *Context) []*Context {
 	return children
 }
 
-func getAllRuns(c *Context) []func(t *testing.T) {
-	runs := make([]func(t *testing.T), 0)
+func getAllRuns(c *Context) []func() error {
+	runs := make([]func() error, 0)
 	for _, child := range c.children {
 		runs = append(runs, getAllRuns(child)...)
 	}
 
-	if c.runner.skip {
-		return runs
+	for _, t := range c.tests {
+		for _, run := range t.runs {
+			runs = append(runs, run)
+		}
 	}
 
-	if c.runner.focus {
-	}
-
-	runs = append(runs, c.runner.runs...)
 	return runs
 }
 
