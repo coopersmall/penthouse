@@ -5,6 +5,8 @@ const (
 	red    = "31"
 	green  = "32"
 	yellow = "33"
+	orange = "38;5;208"
+	cyan   = "36"
 )
 
 func Green(str string) string {
@@ -17,6 +19,14 @@ func Red(str string) string {
 
 func Yellow(str string) string {
 	return addColor(str, yellow)
+}
+
+func Orange(str string) string {
+	return addColor(str, orange)
+}
+
+func Cyan(str string) string {
+	return addColor(str, cyan)
 }
 
 func addColor(str string, color string) string {

@@ -2,6 +2,7 @@ package gotesting
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -123,24 +124,58 @@ func Run(t *testing.T, s *suite) {
 		opt(ts)
 	}
 
-	fmt.Println("Running suite:", s.name)
+	runTests := func(tests []*Context) {
+		done := make(chan bool, len(tests))
+		for _, t := range tests {
+			go func(t *Context) {
+				test(t)(ts)
+				done <- true
+			}(t)
+		}
 
+		for i := 0; i < len(tests); i++ {
+			<-done
+		}
+	}
+
+	focus := make(map[string]*Context)
 	for i := range s.tests {
-		focusTest(s.tests[i])
+		has, ok := focusTest(s.tests[i])
+		if !ok {
+			continue
+		}
+		focus[has.name] = has
 	}
 
-	done := make(chan bool, len(s.tests))
-	for _, t := range s.tests {
-		go func(t *Context) {
-			test(t)(ts)
-			done <- true
-		}(t)
-	}
+	if len(focus) > 0 {
+		for k := range focus {
+			plural := "s"
+			if len(focus[k].focused) == 1 {
+				plural = ""
+			}
+			length := 0
+			for _, t := range focus[k].focused {
+				length += len(getAllRuns(t))
+			}
+			message := fmt.Sprintf(Orange("Focused %s")+": Running %d test"+plural, k, length)
+			fmt.Println(strings.Repeat("-", len(message)))
+			fmt.Println(message)
+			fmt.Println(strings.Repeat("-", len(message)))
 
-	for i := 0; i < len(s.tests); i++ {
-		<-done
-	}
+			tests := make([]*Context, 0)
+			for _, t := range focus[k].focused {
+				tests = append(tests, t)
+			}
+			runTests(tests)
+		}
+	} else {
+		message := fmt.Sprintf(Cyan("%s")+": Running all tests", s.name)
+		fmt.Println(strings.Repeat("-", len(message)))
+		fmt.Println(message)
+		fmt.Println(strings.Repeat("-", len(message)))
 
+		runTests(s.tests)
+	}
 }
 
 type opt func(*testingSuite)
@@ -175,12 +210,20 @@ func test(c *Context) opt {
 			for _, f := range c.focused {
 				test(f)(s)
 			}
-		case c.runner.runs == nil:
-			testChildren()
 		default:
 			for _, run := range c.runner.runs {
+				if run == nil {
+					continue
+				}
+
+				if c.runner.skip {
+					fmt.Print(Yellow("•"))
+					continue
+				}
+
 				run(s.T())
 			}
+
 			testChildren()
 		}
 
@@ -222,17 +265,37 @@ func getAllChildren(c *Context) []*Context {
 	return children
 }
 
+func getAllRuns(c *Context) []func(t *testing.T) {
+	runs := make([]func(t *testing.T), 0)
+	for _, child := range c.children {
+		runs = append(runs, getAllRuns(child)...)
+	}
+
+	if c.runner.skip {
+		return runs
+	}
+
+	if c.runner.focus {
+	}
+
+	runs = append(runs, c.runner.runs...)
+	return runs
+}
+
 func focusTest(c *Context) (*Context, bool) {
 	for _, t := range c.children {
 		has, ok := focusTest(t)
-		if !ok {
+		if ok {
+			c.focused[has.name] = has
 			continue
 		}
-
-		c.focused[has.name] = has
 	}
 
 	if c.focus {
+		return c, true
+	}
+
+	if len(c.focused) > 0 {
 		return c, true
 	}
 

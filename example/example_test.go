@@ -18,17 +18,17 @@ var _ = suite.BeforeAll(func() {
 	num = 2
 })
 
-var _ = suite.Test("main test", func(c *Context) {
-	c.Test(func(t *testing.T) {
+var _ = suite.Test("main test", func(ctx *Context) {
+	ctx.Test(func(t *testing.T) {
 		// ...
 		// ...
-		suite.Assert("this is a test", t, func(a Assert) {
-			a.Equal(num, 2)
+		suite.Assert("this is main assert test", t, func(assert Assert) {
+			assert.Equal(num, 2)
 		})
 	})
 
-	c.Context("sub test 1", func(c *Context) {
-		c.
+	ctx.Context("sub test 1", func(ctx *Context) {
+		ctx.
 			Before(func() {
 				num = 3
 			}).
@@ -40,27 +40,33 @@ var _ = suite.Test("main test", func(c *Context) {
 			}).
 			Test(func(t *testing.T) {
 				// ...
-				suite.Assert("this is a test", t, func(a Assert) {
-					a.Equal(num, 5)
+				suite.Assert("this is assert test", t, func(assert Assert) {
+					assert.Equal(num, 5)
 				})
 
-				suite.Assert("this is another test", t, func(a Assert) {
-					a.Equal(num, 5)
+				suite.Assert("this is another test", t, func(assert Assert) {
+					assert.Equal(num, 5)
 				})
 				// ...
 			}).
-			FContext("sub sub test", func(c *Context) {
-				c.
+			Test(func(t *testing.T) {
+				// ...
+				suite.Assert("this is another assert test", t, func(assert Assert) {
+					assert.Equal(num, 5)
+				})
+			}).
+			Context("sub sub test", func(ctx *Context) {
+				ctx.
 					Before(func() {
 						num = 2
 					}).
 					JustBefore(func() {
-						num = 5
+						num = 6
 					}).
-					Test(func(t *testing.T) {
+					XTest(func(t *testing.T) {
 						// ...
-						suite.Assert("this is a sub test", t, func(a Assert) {
-							a.Equal(num, 5)
+						suite.Assert("this is assert sub test", t, func(assert Assert) {
+							assert.Equal(num, 6)
 						})
 						// ...
 					})
@@ -68,8 +74,8 @@ var _ = suite.Test("main test", func(c *Context) {
 
 	})
 
-	c.Context("this is a focused sub test", func(c *Context) {
-		c.
+	ctx.Context("this is assert focused sub test", func(ctx *Context) {
+		ctx.
 			Before(func() {
 				num = 2
 			}).
@@ -79,8 +85,8 @@ var _ = suite.Test("main test", func(c *Context) {
 			Test(func(t *testing.T) {
 				// ...
 				// ...
-				suite.Assert("this is a sub test", t, func(a Assert) {
-					a.Equal(num, 6)
+				suite.Assert("this is focus assert sub test", t, func(assert Assert) {
+					assert.Equal(num, 6)
 				})
 			})
 	})
