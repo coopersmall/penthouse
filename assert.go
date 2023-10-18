@@ -4,127 +4,52 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"testing"
 )
+
+var assert = newAsserter
 
 type Assert interface {
 	Equal(expected, actual any)
-	NotEqual(expected, actual any)
-	True(value bool)
-	False(value bool)
 }
 
 type asserter struct {
-	name string
-	t    *T
+	t *T
 }
 
 // newAsserter returns a new asserter.
-func newAsserter(name string, t *T) Assert {
+func newAsserter(t *T) Assert {
 	return &asserter{
-		name: name,
-		t:    t,
+		t: t,
 	}
 }
 
 func (a *asserter) Equal(expected, actual any) {
-	fn := func() error {
-		if expected == actual {
-			return nil
-		}
-		_, file, line, _ := runtime.Caller(1)
+	fn := func(t *testing.T) error {
+		var err error
+		t.Run(t.Name(), func(t *testing.T) {
+			if expected == actual {
+				return
+			}
+			_, file, line, _ := runtime.Caller(1)
 
-		error := struct {
-			Expected any    `json:"expected"`
-			Actual   any    `json:"actual"`
-			File     string `json:"file"`
-			Line     int    `json:"line"`
-		}{
-			Expected: expected,
-			Actual:   actual,
-			File:     file,
-			Line:     line,
-		}
+			error := struct {
+				Expected any    `json:"expected"`
+				Actual   any    `json:"actual"`
+				File     string `json:"file"`
+				Line     int    `json:"line"`
+			}{
+				Expected: expected,
+				Actual:   actual,
+				File:     file,
+				Line:     line,
+			}
 
-		json, _ := json.Marshal(error)
+			json, _ := json.Marshal(error)
 
-		return fmt.Errorf("%s", json)
-	}
-
-	a.t.runs = append(a.t.runs, fn)
-}
-
-func (a *asserter) NotEqual(expected, actual any) {
-	fn := func() error {
-		if expected != actual {
-			return nil
-		}
-		_, file, line, _ := runtime.Caller(1)
-
-		error := struct {
-			Expected any    `json:"expected"`
-			Actual   any    `json:"actual"`
-			File     string `json:"file"`
-			Line     int    `json:"line"`
-		}{
-			Expected: expected,
-			Actual:   actual,
-			File:     file,
-			Line:     line,
-		}
-
-		json, _ := json.Marshal(error)
-
-		return fmt.Errorf("%s", json)
-	}
-
-	a.t.runs = append(a.t.runs, fn)
-}
-
-func (a *asserter) True(value bool) {
-	fn := func() error {
-		if value {
-			return nil
-		}
-		_, file, line, _ := runtime.Caller(1)
-
-		error := struct {
-			Value bool   `json:"value"`
-			File  string `json:"file"`
-			Line  int    `json:"line"`
-		}{
-			Value: value,
-			File:  file,
-			Line:  line,
-		}
-
-		json, _ := json.Marshal(error)
-
-		return fmt.Errorf("%s", json)
-	}
-
-	a.t.runs = append(a.t.runs, fn)
-}
-
-func (a *asserter) False(value bool) {
-	fn := func() error {
-		if !value {
-			return nil
-		}
-		_, file, line, _ := runtime.Caller(1)
-
-		error := struct {
-			Value bool   `json:"value"`
-			File  string `json:"file"`
-			Line  int    `json:"line"`
-		}{
-			Value: value,
-			File:  file,
-			Line:  line,
-		}
-
-		json, _ := json.Marshal(error)
-
-		return fmt.Errorf("%s", json)
+			err = fmt.Errorf("%s", json)
+		})
+		return err
 	}
 
 	a.t.runs = append(a.t.runs, fn)

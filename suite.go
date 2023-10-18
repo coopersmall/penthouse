@@ -8,6 +8,8 @@ import (
 
 var Suite = newSuite
 
+type opt func(*testingSuite)
+
 type suite struct {
 	name  string
 	tests []*Context
@@ -28,14 +30,10 @@ type Context struct {
 
 type T struct {
 	name  string
-	runs  []func() error
+	runs  []func(t *testing.T) error
+	test  func(Assert)
 	skip  bool
 	focus bool
-}
-
-func (t *T) Assert(name string, fn func(a Assert)) {
-	a := newAsserter(name, t)
-	fn(a)
 }
 
 func (t *Context) Before(fn func()) *Context {
@@ -48,18 +46,17 @@ func (t *Context) JustBefore(fn func()) *Context {
 	return t
 }
 
-func (t *Context) Test(fn func(t *T)) *Context {
-	test := &T{
-		name: t.name,
-		runs: make([]func() error, 0),
-	}
-	fn(test)
-	t.tests = append(t.tests, test)
-	return t
+func (c *Context) Test(name string, fn func(Assert)) *Context {
+	tt := newT(fmt.Sprintf("%s/%s", c.name, name))
+	c.tests = append(c.tests, tt)
+	return c
 }
 
-func (t *Context) XTest(fn func(t *testing.T)) *Context {
-	return t
+func (c *Context) XTest(name string, fn func(Assert)) *Context {
+	tt := newT(fmt.Sprintf("%s/%s", c.name, name))
+	tt.skip = true
+	c.tests = append(c.tests, tt)
+	return c
 }
 
 func (t *Context) After(fn func()) *Context {
@@ -152,14 +149,17 @@ func Run(t *testing.T, s *suite) {
 
 	if len(focus) > 0 {
 		for k := range focus {
+
 			plural := "s"
 			if len(focus[k].focused) == 1 {
 				plural = ""
 			}
+
 			length := 0
 			for _, t := range focus[k].focused {
 				length += len(getAllRuns(t))
 			}
+
 			message := fmt.Sprintf(Orange("Focused %s")+": Running %d test"+plural, k, length)
 			fmt.Println(strings.Repeat("-", len(message)))
 			fmt.Println(message)
@@ -180,8 +180,6 @@ func Run(t *testing.T, s *suite) {
 		runTests(s.tests)
 	}
 }
-
-type opt func(*testingSuite)
 
 func test(c *Context) opt {
 	return func(s *testingSuite) {
@@ -209,10 +207,12 @@ func test(c *Context) opt {
 			for i := 0; i <= l; i++ {
 				fmt.Print(Yellow("•"))
 			}
+
 		case len(c.focused) > 0:
 			for _, f := range c.focused {
 				test(f)(s)
 			}
+
 		default:
 			for _, t := range c.tests {
 				for _, before := range c.before {
@@ -223,9 +223,11 @@ func test(c *Context) opt {
 					before()
 				}
 
+				t.test(newAsserter(t))
+
 				for _, run := range t.runs {
 					s.t.Run(t.name, func(t *testing.T) {
-						if err := run(); err != nil {
+						if err := run(t); err != nil {
 							fmt.Print(Red("•"))
 							t.Error(err)
 							return
@@ -239,7 +241,6 @@ func test(c *Context) opt {
 					after()
 				}
 			}
-
 			testChildren()
 		}
 
@@ -250,6 +251,14 @@ func test(c *Context) opt {
 		if s.afterAll != nil {
 			s.afterAll()
 		}
+	}
+}
+
+func newT(name string) *T {
+	return &T{
+		name: name,
+		runs: make([]func(t *testing.T) error, 0),
+		test: func(assert Assert) {},
 	}
 }
 
@@ -279,8 +288,8 @@ func getAllChildren(c *Context) []*Context {
 	return children
 }
 
-func getAllRuns(c *Context) []func() error {
-	runs := make([]func() error, 0)
+func getAllRuns(c *Context) []func(*testing.T) error {
+	runs := make([]func(*testing.T) error, 0)
 	for _, child := range c.children {
 		runs = append(runs, getAllRuns(child)...)
 	}

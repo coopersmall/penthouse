@@ -19,13 +19,13 @@ var _ = suite.BeforeAll(func() {
 })
 
 var _ = suite.Test("main test", func(ctx *Context) {
-	ctx.Test(func(t *T) {
+	ctx.Before(func() {
+		num = 3
+	})
+
+	ctx.Test("name", func(assert Assert) {
 		// ...
-		t.Assert("some test", func(assert Assert) {
-			// ...
-			assert.Equal(num, 2)
-			// ...
-		})
+		assert.Equal(num, 3)
 		// ...
 	})
 
@@ -40,18 +40,14 @@ var _ = suite.Test("main test", func(ctx *Context) {
 			JustBefore(func() {
 				num = 5
 			}).
-			Test(func(t *T) {
+			Test("name", func(assert Assert) {
 				// ...
-				t.Assert("some test", func(assert Assert) {
-					assert.Equal(num, 5)
-				})
+				assert.Equal(num, 5)
 				// ...
 			}).
-			Test(func(t *T) {
+			Test("some other name", func(assert Assert) {
 				// ...
-				t.Assert("some test", func(assert Assert) {
-					assert.Equal(num, 5)
-				})
+				assert.Equal(num, 5)
 				// ...
 			}).
 			Context("sub sub test", func(ctx *Context) {
@@ -62,11 +58,9 @@ var _ = suite.Test("main test", func(ctx *Context) {
 					JustBefore(func() {
 						num = 6
 					}).
-					Test(func(t *T) {
+					Test("", func(assert Assert) {
 						// ...
-						t.Assert("some test", func(assert Assert) {
-							assert.Equal(num, 6)
-						})
+						assert.Equal(num, 6)
 						// ...
 					})
 			})
@@ -81,10 +75,10 @@ var _ = suite.Test("main test", func(ctx *Context) {
 			JustBefore(func() {
 				num = 6
 			}).
-			Test(func(t *T) {
-				t.Assert("some test", func(assert Assert) {
-					assert.Equal(num, 6)
-				})
+			Test("", func(assert Assert) {
+				// ...
+				assert.Equal(num, 6)
+				// ...
 			})
 	})
 })
