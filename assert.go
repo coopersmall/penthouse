@@ -3,53 +3,51 @@ package gotesting
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"runtime"
-	"testing"
 )
 
 var assert = newAsserter
 
 type Assert interface {
-	Equal(expected, actual any)
+	// Equal asserts that the actual value is equal to the expected value.
+	// If the values are not equal, it panics.
+	Equal(actual, expected any)
 }
 
 type asserter struct {
-	t *T
+	t *t
 }
 
 // newAsserter returns a new asserter.
-func newAsserter(t *T) Assert {
+func newAsserter(t *t) Assert {
 	return &asserter{
 		t: t,
 	}
 }
 
-func (a *asserter) Equal(expected, actual any) {
-	fn := func(t *testing.T) error {
-		var err error
-		t.Run(t.Name(), func(t *testing.T) {
-			if expected == actual {
-				return
-			}
-			_, file, line, _ := runtime.Caller(1)
+func (a *asserter) Equal(actual, expected any) {
+	_, file, line, _ := runtime.Caller(1)
+	fn := func() error {
+		if reflect.DeepEqual(actual, expected) {
+			return nil
+		}
 
-			error := struct {
-				Expected any    `json:"expected"`
-				Actual   any    `json:"actual"`
-				File     string `json:"file"`
-				Line     int    `json:"line"`
-			}{
-				Expected: expected,
-				Actual:   actual,
-				File:     file,
-				Line:     line,
-			}
+		error := struct {
+			Expected any    `json:"expected"`
+			Actual   any    `json:"actual"`
+			File     string `json:"file"`
+			Line     int    `json:"line"`
+		}{
+			Expected: expected,
+			Actual:   actual,
+			File:     file,
+			Line:     line,
+		}
 
-			json, _ := json.Marshal(error)
+		json, _ := json.MarshalIndent(error, "", "  ")
 
-			err = fmt.Errorf("%s", json)
-		})
-		return err
+		return fmt.Errorf("%s", json)
 	}
 
 	a.t.runs = append(a.t.runs, fn)

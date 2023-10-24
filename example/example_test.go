@@ -1,85 +1,95 @@
+// go:build unit
+
 package example_test
 
 import (
 	"testing"
 
 	. "github.com/coopersmall/penthouse"
+	. "github.com/coopersmall/penthouse/example"
 )
 
 var (
-	suite = Suite("Testing Suite").With()
+	suite = Suite("Example Testing Suite")
 )
 
 var (
-	num int
+	db *DBMock
 )
 
 var _ = suite.BeforeAll(func() {
-	num = 2
+	db = NewDBMock()
 })
 
-var _ = suite.Test("main test", func(ctx *Context) {
+var _ = suite.Describe("main test", func(ctx *Context) {
+	var (
+		result string
+		err    error
+		id     = 2
+
+		itSucceeds = func(ctx *Context) {
+			ctx.It("succeeds", func(assert Assert) {
+				assert.Equal(result, "bob")
+				assert.Equal(err, nil)
+			})
+		}
+
+		itCallsDB = func(ctx *Context) {
+			ctx.It("calls db", func(assert Assert) {
+				assert.Equal(db.CallCount("Get"), 1)
+				assert.Equal(db.CallParam("Get", 0, 0), id)
+			})
+		}
+	)
+
 	ctx.Before(func() {
-		num = 3
+		db.SetReturns("Get", "bob", nil)
 	})
 
-	ctx.Test("name", func(assert Assert) {
-		// ...
-		assert.Equal(num, 3)
-		// ...
+	ctx.JustBefore(func() {
+		result, err = NewExample(db).GetCustomer(id)
 	})
 
-	ctx.Context("sub test 1", func(ctx *Context) {
-		ctx.
-			Before(func() {
-				num = 3
-			}).
-			After(func() {
-				num = 2
-			}).
-			JustBefore(func() {
-				num = 5
-			}).
-			Test("name", func(assert Assert) {
-				// ...
-				assert.Equal(num, 5)
-				// ...
-			}).
-			Test("some other name", func(assert Assert) {
-				// ...
-				assert.Equal(num, 5)
-				// ...
-			}).
-			Context("sub sub test", func(ctx *Context) {
-				ctx.
-					Before(func() {
-						num = 2
-					}).
-					JustBefore(func() {
-						num = 6
-					}).
-					Test("", func(assert Assert) {
-						// ...
-						assert.Equal(num, 6)
-						// ...
-					})
+	ctx.After(func() {
+		result = ""
+		err = nil
+		db.ClearReturns("Get")
+	})
+
+	itSucceeds(ctx)
+	itCallsDB(ctx)
+
+	ctx.Context("with different id", func(ctx *Context) {
+		ctx.Before(func() {
+			id = 3
+		})
+
+		itSucceeds(ctx)
+		itCallsDB(ctx)
+
+		ctx.Context("sub sub test", func(ctx *Context) {
+			ctx.Before(func() {
+				id = 2
 			})
 
+			itSucceeds(ctx)
+			itCallsDB(ctx)
+		})
 	})
 
 	ctx.Context("this is assert focused sub test", func(ctx *Context) {
-		ctx.
-			Before(func() {
-				num = 2
-			}).
-			JustBefore(func() {
-				num = 6
-			}).
-			Test("", func(assert Assert) {
-				// ...
-				assert.Equal(num, 6)
-				// ...
-			})
+		ctx.Before(func() {
+			id = 7
+		})
+
+		itSucceeds(ctx)
+		itCallsDB(ctx)
+
+		ctx.It("changes the id", func(assert Assert) {
+			// ...
+			assert.Equal(id, 7)
+			// ...
+		})
 	})
 })
 
