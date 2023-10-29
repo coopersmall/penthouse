@@ -1,4 +1,4 @@
-package gotesting
+package suite
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ type testingSuite struct {
 	beforeAll     func()
 	afterAll      func()
 	formatter     Formatter
-	output        func(*testing.T) Output
+	output        Output
 	t             *testing.T
 }
 
@@ -20,23 +20,23 @@ type opt func(*testingSuite)
 
 type suite struct {
 	name  string
-	tests []*Context
+	tests []*context
 	opts  []opt
 }
 
-type Context struct {
+type context struct {
 	name       string
 	before     []func()
 	justBefore []func()
 	after      []func()
-	children   []*Context
-	tests      []*t
+	children   []*context
+	tests      []*runnter
 	skip       bool
 	focus      bool
-	focused    map[string]*Context
+	focused    map[string]*context
 }
 
-type t struct {
+type runnter struct {
 	name  string
 	runs  []func() error
 	test  func(Assert)
@@ -44,28 +44,26 @@ type t struct {
 	focus bool
 }
 
-var Suite = newSuite
-
 func newSuite(name string) *suite {
 	return &suite{
 		name:  name,
-		tests: make([]*Context, 0),
+		tests: make([]*context, 0),
 		opts:  make([]opt, 0),
 	}
 }
 
-func newContext(name string) *Context {
-	return &Context{
+func newContext(name string) *context {
+	return &context{
 		name:    name,
 		before:  make([]func(), 0),
 		after:   make([]func(), 0),
-		focused: make(map[string]*Context),
-		tests:   make([]*t, 0),
+		focused: make(map[string]*context),
+		tests:   make([]*runnter, 0),
 	}
 }
 
-func newT(name string) *t {
-	return &t{
+func newRunner(name string) *runnter {
+	return &runnter{
 		name: name,
 		runs: make([]func() error, 0),
 		test: func(assert Assert) {},
@@ -76,68 +74,8 @@ func newTestingSuite(t *testing.T) *testingSuite {
 	return &testingSuite{
 		t:         t,
 		formatter: NewFormatter(),
-		output:    NewOutput,
+		output:    NewOutput(),
 	}
-}
-
-func (t *Context) Before(fn func()) *Context {
-	t.before = append(t.before, fn)
-	return t
-}
-
-func (t *Context) JustBefore(fn func()) *Context {
-	t.justBefore = append(t.justBefore, fn)
-	return t
-}
-
-func (c *Context) It(name string, fn func(Assert)) *Context {
-	tt := newT(fmt.Sprintf("%s/%s", c.name, name))
-	tt.test = fn
-	c.tests = append(c.tests, tt)
-	return c
-}
-
-func (c *Context) XIt(name string, fn func(Assert)) *Context {
-	tt := newT(fmt.Sprintf("%s/%s", c.name, name))
-	tt.skip = true
-	c.tests = append(c.tests, tt)
-	return c
-}
-
-func (t *Context) After(fn func()) *Context {
-	t.after = append(t.after, fn)
-	return t
-}
-
-func (t *Context) Context(name string, fn func(*Context)) *Context {
-	c := newContext(fmt.Sprintf("%s/%s", t.name, name))
-	t.addChild(c)
-	fn(c)
-	return t
-}
-
-func (t *Context) XContext(name string, fn func(*Context)) *Context {
-	c := newContext(fmt.Sprintf("%s/%s", t.name, name))
-	c.skip = true
-	t.addChild(c)
-	fn(c)
-	return t
-}
-
-func (t *Context) FContext(name string, fn func(*Context)) *Context {
-	c := newContext(fmt.Sprintf("%s/%s", t.name, name))
-	c.focus = true
-	t.addChild(c)
-	fn(c)
-	return c
-}
-
-func (s *suite) Describe(name string, fn func(ctx *Context)) *suite {
-	test := newContext(name)
-	fn(test)
-	s.tests = append(s.tests, test)
-
-	return s
 }
 
 func (s *suite) BeforeAll(f func()) *suite {
@@ -184,13 +122,50 @@ func teardownSuite(teardownSuite func()) opt {
 	}
 }
 
-func Run(t *testing.T, s *suite) {
+func (t *context) beforeEach(fn func()) *context {
+	t.before = append(t.before, fn)
+	return t
+}
+
+func (t *context) justBeforeEach(fn func()) *context {
+	t.justBefore = append(t.justBefore, fn)
+	return t
+}
+
+func (c *context) it(name string, fn func(Assert)) *context {
+	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	runner.test = fn
+	c.tests = append(c.tests, runner)
+	return c
+}
+
+func (c *context) xit(name string, fn func(Assert)) *context {
+	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	runner.skip = true
+	c.tests = append(c.tests, runner)
+	return c
+}
+
+func (c *context) fit(name string, fn func(Assert)) *context {
+	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	runner.focus = true
+	runner.test = fn
+	c.tests = append(c.tests, runner)
+	return c
+}
+
+func (t *context) afterEach(fn func()) *context {
+	t.after = append(t.after, fn)
+	return t
+}
+
+func run(t *testing.T, s *suite) {
 	ts := newTestingSuite(t)
 	for _, opt := range s.opts {
 		opt(ts)
 	}
 
-	focus := make(map[string]*Context)
+	focus := make(map[string]*context)
 	for i := range s.tests {
 		has, ok := s.tests[i].focusContext()
 		if !ok {
@@ -202,7 +177,7 @@ func Run(t *testing.T, s *suite) {
 	var (
 		message string
 		length  = 0
-		tests   = make([]*Context, 0)
+		tests   = make([]*context, 0)
 	)
 
 	if len(focus) > 0 {
@@ -224,7 +199,7 @@ func Run(t *testing.T, s *suite) {
 		tests = s.tests
 	}
 
-	ts.output(t).Log(message)
+	ts.output.Log(message, t)
 
 	if ts.setupSuite != nil {
 		ts.setupSuite()
@@ -232,7 +207,7 @@ func Run(t *testing.T, s *suite) {
 
 	done := make(chan bool, len(tests))
 	for _, t := range tests {
-		go func(t *Context) {
+		go func(t *context) {
 			test(t)(ts)
 			done <- true
 		}(t)
@@ -249,7 +224,7 @@ func Run(t *testing.T, s *suite) {
 	fmt.Println()
 }
 
-func test(c *Context) opt {
+func test(c *context) opt {
 	return func(s *testingSuite) {
 		switch {
 		case c.skip:
@@ -292,7 +267,7 @@ func test(c *Context) opt {
 	}
 }
 
-func (c *Context) skipTests(suite *testingSuite) {
+func (c *context) skipTests(suite *testingSuite) {
 	suite.t.Run(c.name, func(t *testing.T) {
 		l := c.testLength()
 
@@ -301,22 +276,22 @@ func (c *Context) skipTests(suite *testingSuite) {
 			st.WriteString(suite.formatter.Skip())
 		}
 
-		suite.output(t).Skip(st.String())
+		suite.output.Skip(st.String(), t)
 		return
 	})
 }
 
-func (c *Context) runTests(suite *testingSuite) {
+func (c *context) runTests(suite *testingSuite) {
 	var (
 		message string
 		errs    []error
 	)
 
-	for _, tt := range c.tests {
-		suite.t.Run(tt.name, func(t *testing.T) {
-			tt.test(newAsserter(tt))
+	for _, runner := range c.tests {
+		suite.t.Run(runner.name, func(t *testing.T) {
+			runner.test(newAsserter(runner))
 
-			for _, run := range tt.runs {
+			for _, run := range runner.runs {
 				if err := run(); err != nil {
 					errs = append(errs, err)
 				}
@@ -324,11 +299,11 @@ func (c *Context) runTests(suite *testingSuite) {
 
 			if len(errs) > 0 {
 				message = suite.formatter.Failure(errs...)
+				suite.output.Error(message, t)
 			} else {
 				message = suite.formatter.Success()
+				suite.output.Log(message, t)
 			}
-
-			suite.output(t).Log(message)
 		})
 
 		message = ""
@@ -336,14 +311,14 @@ func (c *Context) runTests(suite *testingSuite) {
 	}
 }
 
-func (c *Context) addChild(child *Context) {
+func (c *context) addChild(child *context) {
 	child.before = append(c.before, child.before...)
 	child.after = append(c.after, child.after...)
 	child.justBefore = append(c.justBefore, child.justBefore...)
 	c.children = append(c.children, child)
 }
 
-func (c *Context) testLength() int {
+func (c *context) testLength() int {
 	length := 0
 	for _, child := range c.children {
 		length += child.testLength()
@@ -356,7 +331,7 @@ func (c *Context) testLength() int {
 	return length
 }
 
-func (c *Context) focusContext() (*Context, bool) {
+func (c *context) focusContext() (*context, bool) {
 	for _, t := range c.children {
 		has, ok := t.focusContext()
 		if ok {

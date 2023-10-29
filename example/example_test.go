@@ -5,87 +5,55 @@ package example_test
 import (
 	"testing"
 
-	. "github.com/coopersmall/penthouse"
-	. "github.com/coopersmall/penthouse/example"
+	. "github.com/coopersmall/penthouse/suite"
 )
 
-var (
-	suite = Suite("Example Testing Suite")
-)
+var suite = Suite("Example Testing Suite")
 
-var (
-	db *DBMock
-)
+var _ = Describe("main test", func() {
+	var id = 2
 
-var _ = suite.BeforeAll(func() {
-	db = NewDBMock()
-})
-
-var _ = suite.Describe("main test", func(ctx *Context) {
-	var (
-		result string
-		err    error
-		id     = 2
-
-		itSucceeds = func(ctx *Context) {
-			ctx.It("succeeds", func(assert Assert) {
-				assert.Equal(result, "bob")
-				assert.Equal(err, nil)
-			})
-		}
-
-		itCallsDB = func(ctx *Context) {
-			ctx.It("calls db", func(assert Assert) {
-				assert.Equal(db.CallCount("Get"), 1)
-				assert.Equal(db.CallParam("Get", 0, 0), id)
-			})
-		}
-	)
-
-	ctx.Before(func() {
-		db.SetReturns("Get", "bob", nil)
+	Before(func() {
+		id = 3
 	})
 
-	ctx.JustBefore(func() {
-		result, err = NewExample(db).GetCustomer(id)
+	It("succeeds", func(assert Assert) {
+		assert.Equal(id, 3)
+		// ...
 	})
 
-	ctx.After(func() {
-		result = ""
-		err = nil
-		db.ClearReturns("Get")
-	})
-
-	itSucceeds(ctx)
-	itCallsDB(ctx)
-
-	ctx.Context("with different id", func(ctx *Context) {
-		ctx.Before(func() {
-			id = 3
+	Context("sub test", func() {
+		Before(func() {
+			id = 6
 		})
 
-		itSucceeds(ctx)
-		itCallsDB(ctx)
+		It("succeeds", func(assert Assert) {
+			assert.Equal(id, 6)
+		})
 
-		ctx.Context("sub sub test", func(ctx *Context) {
-			ctx.Before(func() {
+		Context("sub sub test", func() {
+			JustBefore(func() {
 				id = 2
 			})
 
-			itSucceeds(ctx)
-			itCallsDB(ctx)
+			It("succeeds", func(assert Assert) {
+				assert.Equal(id, 2)
+			})
 		})
 	})
 
-	ctx.Context("this is assert focused sub test", func(ctx *Context) {
-		ctx.Before(func() {
+	Context("sub test 2", func() {
+		It("succeeds", func(assert Assert) {
+			assert.Equal(id, 3)
+		})
+	})
+
+	Context("this is assert focused sub test", func() {
+		Before(func() {
 			id = 7
 		})
 
-		itSucceeds(ctx)
-		itCallsDB(ctx)
-
-		ctx.It("changes the id", func(assert Assert) {
+		It("changes the id", func(assert Assert) {
 			// ...
 			assert.Equal(id, 7)
 			// ...
@@ -94,5 +62,5 @@ var _ = suite.Describe("main test", func(ctx *Context) {
 })
 
 func Test(t *testing.T) {
-	Run(t, suite)
+	Run(t)
 }

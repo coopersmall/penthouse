@@ -1,7 +1,6 @@
-package gotesting
+package suite
 
 import (
-	"encoding/json"
 	"strings"
 )
 
@@ -37,22 +36,20 @@ func (f *formatter) Success() string {
 
 func (f *formatter) Failure(errs ...error) string {
 	var s strings.Builder
+	s.WriteString(Red("•"))
 
 	for i, err := range errs {
 		if i == 0 {
 			s.WriteString("\n")
 		}
 
-		json, _ := json.MarshalIndent(err, "", "  ")
-		s.WriteString(string(json))
+		s.WriteString(err.Error())
 		if i != len(errs)-1 {
 			s.WriteString(",")
 		}
 
 		s.WriteString("\n")
 	}
-
-	s.WriteString(Red("•"))
 
 	return s.String()
 }

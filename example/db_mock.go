@@ -1,29 +1,26 @@
 package example
 
 import (
-	. "github.com/coopersmall/penthouse"
+    "github.com/coopersmall/penthouse/mock"
 )
 
 type DBMock struct {
-	Mock
+    Mock mock.Mock
 }
 
 func NewDBMock() *DBMock {
-	return &DBMock{
-		Mock: NewMock(),
-	}
+    return &DBMock{
+        Mock: mock.NewMock(),
+    }
 }
+
 
 func (m *DBMock) Get(id int) (string, error) {
-	rets := m.CallMethod("Get", id)
-	if rets[1] != nil {
-		return "", rets[1].(error)
-	}
-
-	return rets[0].(string), nil
+    args := m.Mock.CallMethod("Get", id)
+    return args[0].(string), mock.Error(args[1])
 }
 
-func (m *DBMock) Set(id int, value string) error {
-	rets := m.CallMethod("Set", id, value)
-	return rets[0].(error)
+func (m *DBMock) Set(id int, value string) (error) {
+    args := m.Mock.CallMethod("Set", id, value)
+    return mock.Error(args[0])
 }

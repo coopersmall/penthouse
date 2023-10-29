@@ -1,4 +1,4 @@
-package gotesting
+package mock
 
 import (
 	"fmt"
@@ -87,4 +87,12 @@ func (m *mock) CallCount(name string) int {
 		panic(fmt.Sprintf("mock: no such function %s", name))
 	}
 	return len(ret.args)
+}
+
+func Error(a any) error {
+	if a == nil {
+		return nil
+	}
+
+	return a.(error)
 }

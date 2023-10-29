@@ -1,4 +1,4 @@
-package gotesting
+package suite
 
 const (
 	escape = "\x1b"

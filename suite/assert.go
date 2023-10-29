@@ -1,4 +1,4 @@
-package gotesting
+package suite
 
 import (
 	"encoding/json"
@@ -16,11 +16,11 @@ type Assert interface {
 }
 
 type asserter struct {
-	t *t
+	t *runnter
 }
 
 // newAsserter returns a new asserter.
-func newAsserter(t *t) Assert {
+func newAsserter(t *runnter) Assert {
 	return &asserter{
 		t: t,
 	}

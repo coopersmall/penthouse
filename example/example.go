@@ -1,3 +1,5 @@
+//go:generate go run ../mock/generate example.go
+
 package example
 
 type DB interface {
