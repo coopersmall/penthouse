@@ -4,31 +4,25 @@ import (
 	"strings"
 )
 
-type formatter struct{}
-
-func newFormatter() *formatter {
-	return &formatter{}
-}
-
-func (f *formatter) Title(title string) string {
+func title(title string) string {
 	border := strings.Repeat("-", len(title))
 	return border + "\n" + cyan(title) + "\n" + border + "\n"
 }
 
-func (f *formatter) Focus(title string) string {
+func focusTitle(title string) string {
 	border := strings.Repeat("-", len(title))
 	return border + "\n" + orange(title) + "\n" + border + "\n"
 }
 
-func (f *formatter) Success() string {
+func success() string {
 	return (green("•"))
 }
 
-func (f *formatter) Failure(errs ...error) string {
+func failure() string {
 	return (red("•"))
 }
 
-func (f *formatter) Skip() string {
+func skip() string {
 	return (yellow("•"))
 }
 

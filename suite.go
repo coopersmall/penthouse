@@ -11,7 +11,6 @@ type testingSuite struct {
 	teardownSuite func()
 	beforeAll     func()
 	afterAll      func()
-	formatter     *formatter
 	t             *testing.T
 }
 
@@ -69,8 +68,7 @@ func newRunner(name string) *runner {
 
 func newTestingSuite(t *testing.T) *testingSuite {
 	return &testingSuite{
-		t:         t,
-		formatter: newFormatter(),
+		t: t,
 	}
 }
 
@@ -184,14 +182,14 @@ func run(t *testing.T, s *suite) {
 			}
 		}
 
-		message = ts.formatter.Focus(fmt.Sprintf("%s : Focused %d tests", s.name, length))
+		message = focusTitle(fmt.Sprintf("%s : Focused %d tests", s.name, length))
 
 	} else {
 		for _, t := range s.tests {
 			length += t.testLength()
 		}
 
-		message = ts.formatter.Title(fmt.Sprintf("%s : Running all %d tests", s.name, length))
+		message = title(fmt.Sprintf("%s : Running all %d tests", s.name, length))
 		tests = s.tests
 	}
 
@@ -248,9 +246,9 @@ func test(c *context) opt {
 				s.t.Run(runner.name, func(t *testing.T) {
 					runner.test(t)
 					if t.Failed() {
-						fmt.Print(s.formatter.Failure())
+						fmt.Print(failure())
 					} else {
-						fmt.Print(s.formatter.Success())
+						fmt.Print(success())
 					}
 				})
 			}
@@ -273,16 +271,13 @@ func test(c *context) opt {
 }
 
 func (c *context) skipTests(suite *testingSuite) {
+	l := c.testLength()
+	var st strings.Builder
+
 	suite.t.Run(c.name, func(t *testing.T) {
-		l := c.testLength()
-
-		var st strings.Builder
 		for i := 0; i <= l; i++ {
-			st.WriteString(suite.formatter.Skip())
+			st.WriteString(skip())
 		}
-
-		fmt.Println(suite.formatter.Title(fmt.Sprintf("%s : Skipped %d tests", c.name, l)))
-		return
 	})
 }
 
