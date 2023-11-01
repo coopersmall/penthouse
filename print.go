@@ -1,17 +1,21 @@
 package suite
 
 import (
+	"fmt"
 	"strings"
 )
 
-func title(title string) string {
-	border := strings.Repeat("-", len(title))
-	return border + "\n" + cyan(title) + "\n" + border + "\n"
-}
+func title(name string, length int, isFocused bool) string {
+	color := cyan
+	title := fmt.Sprintf("%s: %d tests", color(name), length)
 
-func focusTitle(title string) string {
+	if isFocused {
+		color = yellow
+		title = fmt.Sprintf("%s: %d tests (focused)", color(name), length)
+	}
+
 	border := strings.Repeat("-", len(title))
-	return border + "\n" + orange(title) + "\n" + border + "\n"
+	return border + "\n" + title + "\n" + border + "\n"
 }
 
 func success() string {

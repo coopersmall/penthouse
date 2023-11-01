@@ -2,7 +2,6 @@ package suite
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 )
 
@@ -59,7 +58,7 @@ func newContext(name string) *context {
 	}
 }
 
-func newRunner(name string) *test {
+func newTest(name string) *test {
 	return &test{
 		name: name,
 		fn:   func(t *testing.T) {},
@@ -83,21 +82,21 @@ func (t *context) justBeforeEach(fn func()) *context {
 }
 
 func (c *context) it(name string, fn func(t *testing.T)) *context {
-	test := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	test := newTest(fmt.Sprintf("%s/%s", c.name, name))
 	test.fn = fn
 	c.tests = append(c.tests, test)
 	return c
 }
 
 func (c *context) xit(name string, fn func(t *testing.T)) *context {
-	test := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	test := newTest(fmt.Sprintf("%s/%s", c.name, name))
 	test.skip = true
 	c.tests = append(c.tests, test)
 	return c
 }
 
 func (c *context) fit(name string, fn func(t *testing.T)) *context {
-	test := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	test := newTest(fmt.Sprintf("%s/%s", c.name, name))
 	test.focus = true
 	test.fn = fn
 	c.tests = append(c.tests, test)
@@ -138,18 +137,18 @@ func run(t *testing.T, s *suite) {
 			}
 		}
 
-		message = focusTitle(fmt.Sprintf("%s : Focused %d tests", s.name, length))
+		message = title(s.name, length, true)
 
 	} else {
 		for _, t := range s.tests {
 			length += t.testLength()
 		}
 
-		message = title(fmt.Sprintf("%s : Running all %d tests", s.name, length))
+		message = title(s.name, length, false)
 		tests = s.tests
 	}
 
-	fmt.Println(message)
+	fmt.Print(message)
 
 	if ts.setupSuite != nil {
 		ts.setupSuite()
@@ -178,7 +177,13 @@ func runTest(c *context) opt {
 	return func(s *testingSuite) {
 		switch {
 		case c.skip:
-			c.skipTests(s)
+			l := c.testLength()
+			s.t.Run(c.name, func(t *testing.T) {
+				for i := 0; i <= l; i++ {
+					t.SkipNow()
+					fmt.Print(skip())
+				}
+			})
 
 		case len(c.focused) > 0:
 			for _, f := range c.focused {
@@ -224,17 +229,6 @@ func runTest(c *context) opt {
 		}
 
 	}
-}
-
-func (c *context) skipTests(suite *testingSuite) {
-	l := c.testLength()
-	var st strings.Builder
-
-	suite.t.Run(c.name, func(t *testing.T) {
-		for i := 0; i <= l; i++ {
-			st.WriteString(skip())
-		}
-	})
 }
 
 func (c *context) addChild(child *context) {
