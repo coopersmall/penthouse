@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	currentSuite *suite
-	currentCtx   *context
-	currentT     *runner
+	currentSuite   *suite
+	currentContext *context
+	currentTest    *test
 )
 
 func Suite(name string) *suite {
@@ -16,15 +16,43 @@ func Suite(name string) *suite {
 	return currentSuite
 }
 
+func (s *suite) BeforeAll(fn func()) *suite {
+	s.opts = append(s.opts, func(ts *testingSuite) {
+		ts.beforeAll = fn
+	})
+	return s
+}
+
+func (s *suite) AfterAll(fn func()) *suite {
+	s.opts = append(s.opts, func(ts *testingSuite) {
+		ts.afterAll = fn
+	})
+	return s
+}
+
+func (s *suite) SetupSuite(fn func()) *suite {
+	s.opts = append(s.opts, func(s *testingSuite) {
+		s.setupSuite = fn
+	})
+	return s
+}
+
+func (s *suite) TeardownSuite(fn func()) *suite {
+	s.opts = append(s.opts, func(s *testingSuite) {
+		s.teardownSuite = fn
+	})
+	return s
+}
+
 func Describe(name string, fn func()) *suite {
 	if currentSuite == nil {
 		panic("Describe must be called with an active suite")
 	}
 
-	currentCtx = newContext(name)
+	currentContext = newContext(name)
 	fn()
 
-	currentSuite.tests = append(currentSuite.tests, currentCtx)
+	currentSuite.tests = append(currentSuite.tests, currentContext)
 	return currentSuite
 }
 
@@ -33,11 +61,11 @@ func FDescribe(name string, fn func()) *suite {
 		panic("FDescribe must be called with an active suite")
 	}
 
-	currentCtx = newContext(name)
-	currentCtx.focus = true
+	currentContext = newContext(name)
+	currentContext.focus = true
 	fn()
 
-	currentSuite.tests = append(currentSuite.tests, currentCtx)
+	currentSuite.tests = append(currentSuite.tests, currentContext)
 	return currentSuite
 }
 
@@ -46,101 +74,101 @@ func XDescribe(name string, fn func()) *suite {
 		panic("XDescribe must be called with an active suite")
 	}
 
-	currentCtx = newContext(name)
-	currentCtx.skip = true
+	currentContext = newContext(name)
+	currentContext.skip = true
 	fn()
 
-	currentSuite.tests = append(currentSuite.tests, currentCtx)
+	currentSuite.tests = append(currentSuite.tests, currentContext)
 	return currentSuite
 }
 
 func Before(fn func()) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("Before must be called with an active context")
 	}
 
-	currentCtx.beforeEach(fn)
+	currentContext.beforeEach(fn)
 }
 
 func JustBefore(fn func()) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("JustBefore must be called with an active context")
 	}
 
-	currentCtx.justBeforeEach(fn)
+	currentContext.justBeforeEach(fn)
 }
 
 func After(fn func()) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("After must be called with an active context")
 	}
 
-	currentCtx.afterEach(fn)
+	currentContext.afterEach(fn)
 }
 
 func Context(name string, fn func()) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("Context must be called inside a Describe")
 	}
 
-	ctx := newContext(fmt.Sprintf("%s/%s", currentCtx.name, name))
-	oldCtx := currentCtx
+	ctx := newContext(fmt.Sprintf("%s/%s", currentContext.name, name))
+	oldCtx := currentContext
 	oldCtx.addChild(ctx)
-	currentCtx = ctx
+	currentContext = ctx
 	fn()
-	currentCtx = oldCtx
+	currentContext = oldCtx
 }
 
 func XContext(name string, fn func()) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("XContext must be called inside a Describe")
 	}
 
-	ctx := newContext(fmt.Sprintf("%s/%s", currentCtx.name, name))
+	ctx := newContext(fmt.Sprintf("%s/%s", currentContext.name, name))
 	ctx.skip = true
-	oldCtx := currentCtx
+	oldCtx := currentContext
 	oldCtx.addChild(ctx)
-	currentCtx = ctx
+	currentContext = ctx
 	fn()
-	currentCtx = oldCtx
+	currentContext = oldCtx
 }
 
 func FContext(name string, fn func()) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("FContext must be called inside a Describe")
 	}
 
-	ctx := newContext(fmt.Sprintf("%s/%s", currentCtx.name, name))
+	ctx := newContext(fmt.Sprintf("%s/%s", currentContext.name, name))
 	ctx.focus = true
-	oldCtx := currentCtx
+	oldCtx := currentContext
 	oldCtx.addChild(ctx)
-	currentCtx = ctx
+	currentContext = ctx
 	fn()
-	currentCtx = oldCtx
+	currentContext = oldCtx
 }
 
 func It(name string, fn func(t *testing.T)) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("It must be called inside a Describe or Context")
 	}
 
-	currentCtx.it(name, fn)
+	currentContext.it(name, fn)
 }
 
 func XIt(name string, fn func(t *testing.T)) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("XIt must be called inside a Describe or Context")
 	}
 
-	currentCtx.xit(name, fn)
+	currentContext.xit(name, fn)
 }
 
 func FIt(name string, fn func(t *testing.T)) {
-	if currentCtx == nil {
+	if currentContext == nil {
 		panic("FIt must be called inside a Describe or Context")
 	}
 
-	currentCtx.fit(name, fn)
+	currentContext.fit(name, fn)
 }
 
 func Run(t *testing.T) {

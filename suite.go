@@ -28,15 +28,15 @@ type context struct {
 	justBefore []func()
 	after      []func()
 	children   []*context
-	tests      []*runner
+	tests      []*test
 	skip       bool
 	focus      bool
 	focused    map[string]*context
 }
 
-type runner struct {
+type test struct {
 	name  string
-	test  func(t *testing.T)
+	fn    func(t *testing.T)
 	skip  bool
 	focus bool
 }
@@ -55,64 +55,20 @@ func newContext(name string) *context {
 		before:  make([]func(), 0),
 		after:   make([]func(), 0),
 		focused: make(map[string]*context),
-		tests:   make([]*runner, 0),
+		tests:   make([]*test, 0),
 	}
 }
 
-func newRunner(name string) *runner {
-	return &runner{
+func newRunner(name string) *test {
+	return &test{
 		name: name,
-		test: func(t *testing.T) {},
+		fn:   func(t *testing.T) {},
 	}
 }
 
 func newTestingSuite(t *testing.T) *testingSuite {
 	return &testingSuite{
 		t: t,
-	}
-}
-
-func (s *suite) BeforeAll(f func()) *suite {
-	s.opts = append(s.opts, beforeAll(f))
-	return s
-}
-
-func (s *suite) AfterAll(f func()) *suite {
-	s.opts = append(s.opts, afterAll(f))
-	return s
-}
-
-func (s *suite) SetupSuite(f func()) *suite {
-	s.opts = append(s.opts, setupSuite(f))
-	return s
-}
-
-func (s *suite) TeardownSuite(f func()) *suite {
-	s.opts = append(s.opts, teardownSuite(f))
-	return s
-}
-
-func beforeAll(before func()) opt {
-	return func(s *testingSuite) {
-		s.beforeAll = before
-	}
-}
-
-func afterAll(after func()) opt {
-	return func(s *testingSuite) {
-		s.afterAll = after
-	}
-}
-
-func setupSuite(setupSuite func()) opt {
-	return func(s *testingSuite) {
-		s.setupSuite = setupSuite
-	}
-}
-
-func teardownSuite(teardownSuite func()) opt {
-	return func(s *testingSuite) {
-		s.teardownSuite = teardownSuite
 	}
 }
 
@@ -127,24 +83,24 @@ func (t *context) justBeforeEach(fn func()) *context {
 }
 
 func (c *context) it(name string, fn func(t *testing.T)) *context {
-	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
-	runner.test = fn
-	c.tests = append(c.tests, runner)
+	test := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	test.fn = fn
+	c.tests = append(c.tests, test)
 	return c
 }
 
 func (c *context) xit(name string, fn func(t *testing.T)) *context {
-	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
-	runner.skip = true
-	c.tests = append(c.tests, runner)
+	test := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	test.skip = true
+	c.tests = append(c.tests, test)
 	return c
 }
 
 func (c *context) fit(name string, fn func(t *testing.T)) *context {
-	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
-	runner.focus = true
-	runner.test = fn
-	c.tests = append(c.tests, runner)
+	test := newRunner(fmt.Sprintf("%s/%s", c.name, name))
+	test.focus = true
+	test.fn = fn
+	c.tests = append(c.tests, test)
 	return c
 }
 
@@ -202,7 +158,7 @@ func run(t *testing.T, s *suite) {
 	done := make(chan bool, len(tests))
 	for _, t := range tests {
 		go func(t *context) {
-			test(t)(ts)
+			runTest(t)(ts)
 			done <- true
 		}(t)
 	}
@@ -218,7 +174,7 @@ func run(t *testing.T, s *suite) {
 	fmt.Println()
 }
 
-func test(c *context) opt {
+func runTest(c *context) opt {
 	return func(s *testingSuite) {
 		switch {
 		case c.skip:
@@ -226,7 +182,7 @@ func test(c *context) opt {
 
 		case len(c.focused) > 0:
 			for _, f := range c.focused {
-				test(f)(s)
+				runTest(f)(s)
 			}
 
 		default:
@@ -242,9 +198,9 @@ func test(c *context) opt {
 				before()
 			}
 
-			for _, runner := range c.tests {
-				s.t.Run(runner.name, func(t *testing.T) {
-					runner.test(t)
+			for _, test := range c.tests {
+				s.t.Run(test.name, func(t *testing.T) {
+					test.fn(t)
 					if t.Failed() {
 						fmt.Print(failure())
 					} else {
@@ -264,7 +220,7 @@ func test(c *context) opt {
 		}
 
 		for _, t := range c.children {
-			test(t)(s)
+			runTest(t)(s)
 		}
 
 	}
