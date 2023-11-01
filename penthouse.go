@@ -50,9 +50,10 @@ func Describe(name string, fn func()) *suite {
 	}
 
 	currentContext = newContext(name)
+	currentContext.parent = nil
 	fn()
 
-	currentSuite.tests = append(currentSuite.tests, currentContext)
+	currentSuite.contexts = append(currentSuite.contexts, currentContext)
 	return currentSuite
 }
 
@@ -65,7 +66,7 @@ func FDescribe(name string, fn func()) *suite {
 	currentContext.focus = true
 	fn()
 
-	currentSuite.tests = append(currentSuite.tests, currentContext)
+	currentSuite.contexts = append(currentSuite.contexts, currentContext)
 	return currentSuite
 }
 
@@ -78,7 +79,7 @@ func XDescribe(name string, fn func()) *suite {
 	currentContext.skip = true
 	fn()
 
-	currentSuite.tests = append(currentSuite.tests, currentContext)
+	currentSuite.contexts = append(currentSuite.contexts, currentContext)
 	return currentSuite
 }
 
@@ -87,7 +88,7 @@ func Before(fn func()) {
 		panic("Before must be called with an active context")
 	}
 
-	currentContext.beforeEach(fn)
+	currentContext.before = append(currentContext.before, fn)
 }
 
 func JustBefore(fn func()) {
@@ -95,7 +96,7 @@ func JustBefore(fn func()) {
 		panic("JustBefore must be called with an active context")
 	}
 
-	currentContext.justBeforeEach(fn)
+	currentContext.justBefore = append(currentContext.justBefore, fn)
 }
 
 func After(fn func()) {
@@ -103,7 +104,7 @@ func After(fn func()) {
 		panic("After must be called with an active context")
 	}
 
-	currentContext.afterEach(fn)
+	currentContext.after = append(currentContext.after, fn)
 }
 
 func Context(name string, fn func()) {
@@ -112,11 +113,12 @@ func Context(name string, fn func()) {
 	}
 
 	ctx := newContext(fmt.Sprintf("%s/%s", currentContext.name, name))
-	oldCtx := currentContext
-	oldCtx.addChild(ctx)
+	ctx.parent = currentContext
+	currentContext.children = append(currentContext.children, ctx)
+
 	currentContext = ctx
 	fn()
-	currentContext = oldCtx
+	currentContext = currentContext.parent
 }
 
 func XContext(name string, fn func()) {
@@ -126,11 +128,12 @@ func XContext(name string, fn func()) {
 
 	ctx := newContext(fmt.Sprintf("%s/%s", currentContext.name, name))
 	ctx.skip = true
-	oldCtx := currentContext
-	oldCtx.addChild(ctx)
+	ctx.parent = currentContext
+	currentContext.children = append(currentContext.children, ctx)
+
 	currentContext = ctx
 	fn()
-	currentContext = oldCtx
+	currentContext = currentContext.parent
 }
 
 func FContext(name string, fn func()) {
@@ -140,11 +143,12 @@ func FContext(name string, fn func()) {
 
 	ctx := newContext(fmt.Sprintf("%s/%s", currentContext.name, name))
 	ctx.focus = true
-	oldCtx := currentContext
-	oldCtx.addChild(ctx)
+	ctx.parent = currentContext
+	currentContext.children = append(currentContext.children, ctx)
+
 	currentContext = ctx
 	fn()
-	currentContext = oldCtx
+	currentContext = currentContext.parent
 }
 
 func It(name string, fn func(t *testing.T)) {
@@ -152,7 +156,16 @@ func It(name string, fn func(t *testing.T)) {
 		panic("It must be called inside a Describe or Context")
 	}
 
-	currentContext.it(name, fn)
+	if currentSuite.focused {
+		return
+	}
+
+	test := newTest(fmt.Sprintf("%s/%s", currentContext.name, name))
+	test.focus = currentContext.focus
+	test.fn = fn
+	test.context = currentContext
+	currentContext.tests = append(currentContext.tests, test)
+	currentSuite.tests = append(currentSuite.tests, test)
 }
 
 func XIt(name string, fn func(t *testing.T)) {
@@ -160,7 +173,16 @@ func XIt(name string, fn func(t *testing.T)) {
 		panic("XIt must be called inside a Describe or Context")
 	}
 
-	currentContext.xit(name, fn)
+	if currentSuite.focused {
+		return
+	}
+
+	test := newTest(fmt.Sprintf("%s/%s", currentContext.name, name))
+	test.skip = true
+	test.fn = fn
+	test.context = currentContext
+	currentContext.tests = append(currentContext.tests, test)
+	currentSuite.tests = append(currentSuite.tests, test)
 }
 
 func FIt(name string, fn func(t *testing.T)) {
@@ -168,7 +190,17 @@ func FIt(name string, fn func(t *testing.T)) {
 		panic("FIt must be called inside a Describe or Context")
 	}
 
-	currentContext.fit(name, fn)
+	if !currentSuite.focused {
+		currentSuite.focused = true
+		currentSuite.tests = []*test{}
+	}
+
+	test := newTest(fmt.Sprintf("%s/%s", currentContext.name, name))
+	test.focus = true
+	test.fn = fn
+	test.context = currentContext
+	currentContext.tests = append(currentContext.tests, test)
+	currentSuite.tests = append(currentSuite.tests, test)
 }
 
 func Run(t *testing.T) {

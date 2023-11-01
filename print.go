@@ -5,13 +5,11 @@ import (
 	"strings"
 )
 
-func title(name string, length int, isFocused bool) string {
-	color := cyan
-	title := fmt.Sprintf("%s: %d tests", color(name), length)
+func title(suite *suite) string {
+	title := fmt.Sprintf("%s: %d tests", cyan(suite.name), len(suite.tests))
 
-	if isFocused {
-		color = yellow
-		title = fmt.Sprintf("%s: %d tests (focused)", color(name), length)
+	if suite.focused {
+		title = fmt.Sprintf("%s: %d tests (focused)", yellow(suite.name), len(suite.tests))
 	}
 
 	border := strings.Repeat("-", len(title))
