@@ -24,7 +24,7 @@ var _ = Describe("main test", func() {
 		// ...
 	})
 
-	Context("sub test", func() {
+	FContext("sub test", func() {
 		Before(func() {
 			id = 6
 		})
