@@ -1,4 +1,4 @@
-//go:generate go run ../mock/generate example.go
+//go:generate go run ../mock/generate
 
 package example
 

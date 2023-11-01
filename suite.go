@@ -11,8 +11,7 @@ type testingSuite struct {
 	teardownSuite func()
 	beforeAll     func()
 	afterAll      func()
-	formatter     Formatter
-	output        Output
+	formatter     *formatter
 	t             *testing.T
 }
 
@@ -30,16 +29,15 @@ type context struct {
 	justBefore []func()
 	after      []func()
 	children   []*context
-	tests      []*runnter
+	tests      []*runner
 	skip       bool
 	focus      bool
 	focused    map[string]*context
 }
 
-type runnter struct {
+type runner struct {
 	name  string
-	runs  []func() error
-	test  func(Assert)
+	test  func(t *testing.T)
 	skip  bool
 	focus bool
 }
@@ -58,23 +56,21 @@ func newContext(name string) *context {
 		before:  make([]func(), 0),
 		after:   make([]func(), 0),
 		focused: make(map[string]*context),
-		tests:   make([]*runnter, 0),
+		tests:   make([]*runner, 0),
 	}
 }
 
-func newRunner(name string) *runnter {
-	return &runnter{
+func newRunner(name string) *runner {
+	return &runner{
 		name: name,
-		runs: make([]func() error, 0),
-		test: func(assert Assert) {},
+		test: func(t *testing.T) {},
 	}
 }
 
 func newTestingSuite(t *testing.T) *testingSuite {
 	return &testingSuite{
 		t:         t,
-		formatter: NewFormatter(),
-		output:    NewOutput(),
+		formatter: newFormatter(),
 	}
 }
 
@@ -132,21 +128,21 @@ func (t *context) justBeforeEach(fn func()) *context {
 	return t
 }
 
-func (c *context) it(name string, fn func(Assert)) *context {
+func (c *context) it(name string, fn func(t *testing.T)) *context {
 	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
 	runner.test = fn
 	c.tests = append(c.tests, runner)
 	return c
 }
 
-func (c *context) xit(name string, fn func(Assert)) *context {
+func (c *context) xit(name string, fn func(t *testing.T)) *context {
 	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
 	runner.skip = true
 	c.tests = append(c.tests, runner)
 	return c
 }
 
-func (c *context) fit(name string, fn func(Assert)) *context {
+func (c *context) fit(name string, fn func(t *testing.T)) *context {
 	runner := newRunner(fmt.Sprintf("%s/%s", c.name, name))
 	runner.focus = true
 	runner.test = fn
@@ -199,7 +195,7 @@ func run(t *testing.T, s *suite) {
 		tests = s.tests
 	}
 
-	ts.output.Log(message, t)
+	fmt.Println(message)
 
 	if ts.setupSuite != nil {
 		ts.setupSuite()
@@ -248,7 +244,16 @@ func test(c *context) opt {
 				before()
 			}
 
-			c.runTests(s)
+			for _, runner := range c.tests {
+				s.t.Run(runner.name, func(t *testing.T) {
+					runner.test(t)
+					if t.Failed() {
+						fmt.Print(s.formatter.Failure())
+					} else {
+						fmt.Print(s.formatter.Success())
+					}
+				})
+			}
 
 			for _, after := range c.after {
 				after()
@@ -276,39 +281,9 @@ func (c *context) skipTests(suite *testingSuite) {
 			st.WriteString(suite.formatter.Skip())
 		}
 
-		suite.output.Skip(st.String(), t)
+		fmt.Println(suite.formatter.Title(fmt.Sprintf("%s : Skipped %d tests", c.name, l)))
 		return
 	})
-}
-
-func (c *context) runTests(suite *testingSuite) {
-	var (
-		message string
-		errs    []error
-	)
-
-	for _, runner := range c.tests {
-		suite.t.Run(runner.name, func(t *testing.T) {
-			runner.test(newAsserter(runner))
-
-			for _, run := range runner.runs {
-				if err := run(); err != nil {
-					errs = append(errs, err)
-				}
-			}
-
-			if len(errs) > 0 {
-				message = suite.formatter.Failure(errs...)
-				suite.output.Error(message, t)
-			} else {
-				message = suite.formatter.Success()
-				suite.output.Log(message, t)
-			}
-		})
-
-		message = ""
-		errs = []error{}
-	}
 }
 
 func (c *context) addChild(child *context) {

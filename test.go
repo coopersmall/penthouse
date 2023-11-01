@@ -8,7 +8,7 @@ import (
 var (
 	currentSuite *suite
 	currentCtx   *context
-	currentT     *runnter
+	currentT     *runner
 )
 
 func Suite(name string) *suite {
@@ -119,7 +119,7 @@ func FContext(name string, fn func()) {
 	currentCtx = oldCtx
 }
 
-func It(name string, fn func(Assert)) {
+func It(name string, fn func(t *testing.T)) {
 	if currentCtx == nil {
 		panic("It must be called inside a Describe or Context")
 	}
@@ -127,7 +127,7 @@ func It(name string, fn func(Assert)) {
 	currentCtx.it(name, fn)
 }
 
-func XIt(name string, fn func(Assert)) {
+func XIt(name string, fn func(t *testing.T)) {
 	if currentCtx == nil {
 		panic("XIt must be called inside a Describe or Context")
 	}
@@ -135,7 +135,7 @@ func XIt(name string, fn func(Assert)) {
 	currentCtx.xit(name, fn)
 }
 
-func FIt(name string, fn func(Assert)) {
+func FIt(name string, fn func(t *testing.T)) {
 	if currentCtx == nil {
 		panic("FIt must be called inside a Describe or Context")
 	}
