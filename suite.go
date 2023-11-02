@@ -16,12 +16,11 @@ type testingSuite struct {
 type opt func(*testingSuite)
 
 type suite struct {
-	name     string
-	opts     []opt
-	contexts []*context
-	tests    []*test
-	focused  bool
-	skip     bool
+	name    string
+	opts    []opt
+	focused bool
+	skip    bool
+	tests   []*test
 }
 
 type context struct {
@@ -29,9 +28,8 @@ type context struct {
 	before     []func()
 	justBefore []func()
 	after      []func()
-	tests      []*test
+	focused    bool
 	skip       bool
-	focus      bool
 	parent     *context
 	children   []*context
 }
@@ -40,15 +38,14 @@ type test struct {
 	name    string
 	fn      func(t *testing.T)
 	skip    bool
-	focus   bool
+	focused bool
 	context *context
 }
 
 func newSuite(name string) *suite {
 	return &suite{
-		name:     name,
-		contexts: make([]*context, 0),
-		opts:     make([]opt, 0),
+		name: name,
+		opts: make([]opt, 0),
 	}
 }
 
@@ -57,7 +54,6 @@ func newContext(name string) *context {
 		name:   name,
 		before: make([]func(), 0),
 		after:  make([]func(), 0),
-		tests:  make([]*test, 0),
 	}
 }
 
@@ -106,11 +102,13 @@ func runTest(test *test) opt {
 		if s.beforeAll != nil {
 			s.beforeAll()
 		}
+
 		test.context.runBefore()
 		test.context.runJustBefore()
 
 		s.t.Run(test.name, func(t *testing.T) {
 			test.fn(t)
+
 			if t.Failed() {
 				fmt.Print(failure())
 			} else {
@@ -119,6 +117,7 @@ func runTest(test *test) opt {
 		})
 
 		test.context.runAfter()
+
 		if s.afterAll != nil {
 			s.afterAll()
 		}
@@ -129,8 +128,8 @@ func skipTest(test *test) opt {
 	return func(s *testingSuite) {
 		s.t.Run(test.name, func(t *testing.T) {
 			t.SkipNow()
-			fmt.Print(skip())
 		})
+		fmt.Print(skip())
 	}
 }
 

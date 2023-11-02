@@ -13,7 +13,7 @@ var suite = Suite("Example Testing Suite")
 var _ = Describe("main test", func() {
 	var id = 2
 
-	Before(func() {
+	BeforeEach(func() {
 		id = 3
 	})
 
@@ -24,8 +24,8 @@ var _ = Describe("main test", func() {
 		// ...
 	})
 
-	FContext("sub test", func() {
-		Before(func() {
+	Context("sub test", func() {
+		BeforeEach(func() {
 			id = 6
 		})
 
@@ -36,8 +36,15 @@ var _ = Describe("main test", func() {
 			// ...
 		})
 
+		It("fails", func(t *testing.T) {
+			if id != 6 {
+				t.Errorf("id should be 3, but got %d", id)
+			}
+			// ...
+		})
+
 		Context("sub sub test", func() {
-			JustBefore(func() {
+			JustBeforeEach(func() {
 				id = 2
 			})
 
@@ -60,7 +67,7 @@ var _ = Describe("main test", func() {
 	})
 
 	Context("this is assert focused sub test", func() {
-		Before(func() {
+		BeforeEach(func() {
 			id = 7
 		})
 
@@ -75,5 +82,5 @@ var _ = Describe("main test", func() {
 })
 
 func Test(t *testing.T) {
-	Run(t)
+	suite.Run(t)
 }

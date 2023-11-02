@@ -6,10 +6,15 @@ import (
 )
 
 func title(suite *suite) string {
-	title := fmt.Sprintf("%s: %d tests", cyan(suite.name), len(suite.tests))
+	plural := "s"
+	if len(suite.tests) == 1 {
+		plural = ""
+	}
+
+	title := fmt.Sprintf("%s: %d test%s", cyan(suite.name), len(suite.tests), plural)
 
 	if suite.focused {
-		title = fmt.Sprintf("%s: %d tests (focused)", yellow(suite.name), len(suite.tests))
+		title = fmt.Sprintf("%s: %d test%s (focused)", yellow(suite.name), len(suite.tests), plural)
 	}
 
 	border := strings.Repeat("-", len(title))
